@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10초 맞추기 미니게임</title>
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #fff;
+            font-family: 'Pretendard', sans-serif;
+            overflow: hidden;
+        }
+
+        .container {
+            position: relative;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 30px;
+            padding: 50px 80px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            margin-top: 0;
+            margin-bottom: 30px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: #e0e0e0;
+        }
+
+        .player-info {
+            font-size: 1.2rem;
+            color: #a777e3;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        #timer {
+            font-size: 7rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            margin-bottom: 40px;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.4);
+            letter-spacing: 2px;
+            color: #fff;
+            min-width: 300px;
+        }
+
+        #btn {
+            padding: 18px 60px;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #fff;
+            background: linear-gradient(135deg, #6e8efb, #a777e3);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(167, 119, 227, 0.4);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        #btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(167, 119, 227, 0.6);
+        }
+
+        #btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 5px 10px rgba(167, 119, 227, 0.4);
+        }
+
+        #message {
+            position: absolute;
+            top: -70px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1.8rem;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.5s, transform 0.5s;
+            white-space: nowrap;
+            z-index: 15;
+            background: rgba(0,0,0,0.4);
+            padding: 10px 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .show-msg {
+            opacity: 1 !important;
+            transform: translate(-50%, -20px) !important;
+        }
+
+        /* Result Animation Layer */
+        #result-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+
+        .sad-face {
+            font-size: 8rem;
+            opacity: 0;
+            transform: scale(0);
+        }
+
+        @keyframes growAndExplode {
+            0% { transform: scale(0); opacity: 0; }
+            5% { transform: scale(1); opacity: 1; }
+            40% { transform: scale(2) rotate(5deg); opacity: 1; }
+            60% { transform: scale(3.5) rotate(-5deg); opacity: 1; }
+            75% { transform: scale(5) rotate(0deg); opacity: 1; filter: brightness(1.2); }
+            85% { transform: scale(6.5); opacity: 1; filter: brightness(1.7) contrast(1.5); }
+            90% { transform: scale(7.5); opacity: 0.8; filter: brightness(2) blur(3px); }
+            100% { transform: scale(10); opacity: 0; filter: brightness(3) blur(10px); display: none;}
+        }
+
+        .animate-sad {
+            animation: growAndExplode 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+        
+        /* Modals */
+        #overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+            z-index: 90;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+
+        .modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(30, 30, 50, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 40px;
+            width: 450px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+            z-index: 100;
+            transition: opacity 0.3s, visibility 0.3s, transform 0.3s;
+        }
+
+        .modal.hidden, #overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transform: translate(-50%, -45%);
+        }
+
+        .modal h2 {
+            margin-top: 0;
+            margin-bottom: 25px;
+            color: #fff;
+            font-size: 1.6rem;
+        }
+
+        .modal input {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.2rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            outline: none;
+            margin-bottom: 25px;
+            text-align: center;
+            font-family: inherit;
+        }
+        
+        .modal input::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+        
+        .modal input:focus {
+            border-color: #a777e3;
+            box-shadow: 0 0 10px rgba(167, 119, 227, 0.5);
+        }
+
+        .modal-btn {
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #6e8efb, #a777e3);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+        }
+
+        .modal-btn:hover {
+            box-shadow: 0 5px 15px rgba(167, 119, 227, 0.6);
+            transform: translateY(-2px);
+        }
+
+        /* Ranking styles */
+        .ranking-list {
+            max-height: 280px;
+            overflow-y: auto;
+            margin-bottom: 25px;
+            text-align: left;
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            padding: 10px;
+        }
+
+        .ranking-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 1.1rem;
+        }
+
+        .ranking-item:last-child {
+            border-bottom: none;
+        }
+
+        .ranking-item .rank { 
+            width: 50px; 
+            font-weight: 800; 
+            color: #ffd700; 
+        }
+        .ranking-item.rank-1 .rank { color: #ffd700; text-shadow: 0 0 5px rgba(255,215,0,0.5);}
+        .ranking-item.rank-2 .rank { color: #c0c0c0; }
+        .ranking-item.rank-3 .rank { color: #cd7f32; }
+        .ranking-item.rank-other .rank { color: #999; font-size: 1rem; }
+
+        .ranking-item .name { 
+            flex: 1; 
+            text-align: left; 
+            margin-left: 10px; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            white-space: nowrap; 
+            font-weight: 600;
+        }
+        .ranking-item .score { 
+            width: 65px; 
+            text-align: right; 
+            color: #a777e3;
+            font-weight: bold;
+        }
+        .ranking-item .diff { 
+            width: 95px; 
+            text-align: right; 
+            font-size: 0.85rem; 
+            color: #aaa; 
+        }
+
+        .ranking-list::-webkit-scrollbar { width: 6px; }
+        .ranking-list::-webkit-scrollbar-track { background: transparent; }
+        .ranking-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 3px; }
+
+        .text-btn {
+            background: none; 
+            border: none; 
+            color: #ff9e9e; 
+            font-size: 0.9rem;
+            margin-top: 15px; 
+            cursor: pointer;
+            text-decoration: underline;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+            width: 100%;
+        }
+        .text-btn:hover { opacity: 1; }
+        
+    </style>
+</head>
+<body>
+
+    <!-- Overlays & Modals -->
+    <div id="overlay"></div>
+
+    <div id="name-modal" class="modal">
+        <h2>👋 환영합니다!</h2>
+        <p style="color: #bbb; margin-bottom: 20px; font-size: 0.95rem;">기록을 남길 플레이어 이름을 입력하세요.</p>
+        <input type="text" id="player-name" placeholder="이름 입력" autocomplete="off" maxlength="10" />
+        <button id="start-btn-init" class="modal-btn">게임 입장</button>
+    </div>
+
+    <div id="ranking-board" class="modal hidden">
+        <h2>🏆 명예의 전당 🏆</h2>
+        <div class="ranking-list" id="ranking-list">
+            <!-- 랭킹 아이템이 여기에 추가됨 -->
+        </div>
+        <button id="restart-btn" class="modal-btn">다시 하기</button>
+        <button id="quit-btn" class="modal-btn" style="margin-top: 10px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255,255,255,0.3); color: #fff;">처음으로 (게임 종료)</button>
+        <button id="download-excel-btn" class="modal-btn" style="display: none; margin-top: 10px; background: linear-gradient(135deg, #43a047, #1de9b6); box-shadow: 0 5px 15px rgba(29, 233, 182, 0.4);">📊 관리자 전용 엑셀 다운로드</button>
+        <button id="reset-ranking-btn" class="text-btn" style="display: none;">모든 기록 지우기</button>
+    </div>
+
+    <!-- Main Game -->
+    <div class="container">
+        <div id="message"></div>
+        <div class="player-info" id="display-name" style="display: none;"></div>
+        <h1>정확히 10.00초에 멈춰보세요!</h1>
+        <div id="timer">0.00</div>
+        <button id="btn">시작</button>
+    </div>
+
+    <div id="result-container">
+        <div id="sadFace" class="sad-face">😫</div>
+    </div>
+    
+    <canvas id="canvas"></canvas>
+
+    <script>
+        let startTime;
+        let animationFrameId;
+        let isRunning = false;
+        let playerName = "플레이어";
+        let attemptCount = 1;
+        // localStorage에서 기록 가져오기
+        let records = JSON.parse(localStorage.getItem('stopwatch_records')) || [];
+        
+        const timerDisplay = document.getElementById('timer');
+        const btn = document.getElementById('btn');
+        const sadFace = document.getElementById('sadFace');
+        const messageDisplay = document.getElementById('message');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('overlay');
+        const nameModal = document.getElementById('name-modal');
+        const rankingBoard = document.getElementById('ranking-board');
+        const nameInput = document.getElementById('player-name');
+        
+        // --- 랭킹 및 이름 관련 로직 ---
+        document.getElementById('start-btn-init').addEventListener('click', () => {
+            startGameInit();
+        });
+
+        nameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') startGameInit();
+        });
+
+        function startGameInit() {
+            const val = nameInput.value.trim();
+            if(val) {
+                playerName = val;
+                attemptCount = 1;
+                document.getElementById('display-name').textContent = `👤 ${playerName} 님의 1번째 도전 대기 중...`;
+                document.getElementById('display-name').style.display = 'block';
+                nameModal.classList.add('hidden');
+                overlay.classList.add('hidden');
+            } else {
+                alert("이름을 입력해주세요!");
+                nameInput.focus();
+            }
+        }
+
+        function saveRecord(name, time) {
+            const diff = Math.abs(10 - time).toFixed(2);
+            records.push({ name, time: parseFloat(time), diff: parseFloat(diff) });
+            // 오차(diff)가 작은 순으로 정렬 (10.00초에 가까울수록 상위권)
+            records.sort((a, b) => a.diff - b.diff);
+            localStorage.setItem('stopwatch_records', JSON.stringify(records));
+        }
+
+        function showRanking() {
+            const list = document.getElementById('ranking-list');
+            list.innerHTML = '';
+            
+            if (records.length === 0) {
+                list.innerHTML = '<div style="text-align:center; padding:20px; color:#aaa;">아직 기록이 없습니다.</div>';
+            } else {
+                records.forEach((record, index) => {
+                    const item = document.createElement('div');
+                    
+                    let rankClass = 'rank-other';
+                    let rankStr = `${index + 1}위`;
+                    
+                    if(index === 0) { rankClass = 'rank-1'; rankStr = '🥇 1위'; }
+                    else if(index === 1) { rankClass = 'rank-2'; rankStr = '🥈 2위'; }
+                    else if(index === 2) { rankClass = 'rank-3'; rankStr = '🥉 3위'; }
+                    
+                    item.className = `ranking-item ${rankClass}`;
+                    item.innerHTML = `
+                        <span class="rank">${rankStr}</span>
+                        <span class="name">${record.name}</span>
+                        <span class="score">${record.time.toFixed(2)}초</span>
+                        <span class="diff">(오차 ${record.diff.toFixed(2)}초)</span>
+                    `;
+                    list.appendChild(item);
+                });
+            }
+            
+            // 이름이 '관리자' 거나 'admin'일 때만 관리용 버튼 표시
+            if (playerName === '관리자' || playerName === 'admin') {
+                document.getElementById('download-excel-btn').style.display = 'block';
+                document.getElementById('reset-ranking-btn').style.display = 'block';
+            } else {
+                document.getElementById('download-excel-btn').style.display = 'none';
+                document.getElementById('reset-ranking-btn').style.display = 'none';
+            }
+            
+            overlay.classList.remove('hidden');
+            rankingBoard.classList.remove('hidden');
+        }
+
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            rankingBoard.classList.add('hidden');
+            overlay.classList.add('hidden');
+            resetEffects();
+            timerDisplay.textContent = '0.00';
+            btn.textContent = '시작';
+            btn.style.background = 'linear-gradient(135deg, #6e8efb, #a777e3)';
+            btn.style.boxShadow = '0 10px 20px rgba(167, 119, 227, 0.4)';
+            attemptCount++;
+            document.getElementById('display-name').textContent = `👤 ${playerName} 님의 ${attemptCount}번째 도전 대기 중...`;
+        });
+
+        document.getElementById('quit-btn').addEventListener('click', () => {
+            rankingBoard.classList.add('hidden');
+            
+            // 이름과 게임 상태 완전히 초기화
+            playerName = "플레이어";
+            attemptCount = 1;
+            nameInput.value = "";
+            document.getElementById('display-name').style.display = 'none';
+            resetEffects();
+            timerDisplay.textContent = '0.00';
+            btn.textContent = '시작';
+            btn.style.background = 'linear-gradient(135deg, #6e8efb, #a777e3)';
+            btn.style.boxShadow = '0 10px 20px rgba(167, 119, 227, 0.4)';
+            
+            // 이름 입력 창 띄우기 (오버레이는 유지)
+            nameModal.classList.remove('hidden');
+            setTimeout(() => nameInput.focus(), 100);
+        });
+
+        document.getElementById('reset-ranking-btn').addEventListener('click', () => {
+            if(confirm("모든 기록을 정말로 지우시겠습니까?")) {
+                records = [];
+                localStorage.removeItem('stopwatch_records');
+                showRanking();
+            }
+        });
+
+        document.getElementById('download-excel-btn').addEventListener('click', () => {
+            if (records.length === 0) {
+                alert("다운로드할 기록이 없습니다.");
+                return;
+            }
+            // CSV 헤더 및 데이터 준비 (BOM을 포함하여 한글 깨짐 방지)
+            let csvContent = "\uFEFF순위,이름,시간(초),오차(초)\n";
+            records.forEach((record, index) => {
+                csvContent += `${index + 1},${record.name},${record.time.toFixed(2)},${record.diff.toFixed(2)}\n`;
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", "10초맞추기_명예의전당.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+
+        // --- 기존 게임 및 애니메이션 로직 ---
+        let width, height;
+        let particles = [];
+        let fireworkAnimId = null;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 12 + 2;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.radius = Math.random() * 3 + 1.5;
+                this.life = 1;
+                this.decay = Math.random() * 0.015 + 0.015;
+                const hue = 260 + Math.random() * 60; 
+                const lightness = 50 + Math.random() * 25;
+                this.color = `hsl(${hue}, 100%, ${lightness}%)`;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.15; 
+                this.vx *= 0.98; 
+                this.vy *= 0.98;
+                this.life -= this.decay;
+            }
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        function updateParticles() {
+            ctx.clearRect(0, 0, width, height);
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.update();
+                p.draw(ctx);
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+            if (particles.length > 0) {
+                fireworkAnimId = requestAnimationFrame(updateParticles);
+            } else {
+                ctx.clearRect(0, 0, width, height);
+            }
+        }
+
+        function createFirework(x, y) {
+            for (let i = 0; i < 200; i++) {
+                particles.push(new Particle(x, y));
+            }
+            if (!fireworkAnimId || particles.length <= 200) {
+                updateParticles();
+            }
+        }
+        
+        function autoFirework() {
+            const numFireworks = 8;
+            let count = 0;
+            
+            createFirework(width / 2, height / 2.5);
+            count++;
+
+            const interval = setInterval(() => {
+                createFirework(
+                    width * 0.1 + Math.random() * width * 0.8,
+                    height * 0.1 + Math.random() * height * 0.6
+                );
+                count++;
+                if(count >= numFireworks) clearInterval(interval);
+            }, 300);
+        }
+
+        function updateTimer() {
+            const now = Date.now();
+            const timeElapsed = (now - startTime) / 1000;
+            timerDisplay.textContent = timeElapsed.toFixed(2);
+            animationFrameId = requestAnimationFrame(updateTimer);
+        }
+
+        function resetEffects() {
+            sadFace.classList.remove('animate-sad');
+            particles = [];
+            ctx.clearRect(0, 0, width, height);
+            messageDisplay.classList.remove('show-msg');
+            if(fireworkAnimId) cancelAnimationFrame(fireworkAnimId);
+            fireworkAnimId = null;
+        }
+
+        btn.addEventListener('click', () => {
+            if (!isRunning) {
+                // 게임 시작
+                resetEffects();
+                isRunning = true;
+                startTime = Date.now();
+                btn.textContent = '정지!';
+                btn.style.background = 'linear-gradient(135deg, #ff416c, #ff4b2b)';
+                btn.style.boxShadow = '0 10px 20px rgba(255, 75, 43, 0.4)';
+                document.getElementById('display-name').textContent = `🎮 ${playerName} 님의 ${attemptCount}번째 도전 중...`;
+                updateTimer();
+            } else {
+                // 게임 정지
+                isRunning = false;
+                cancelAnimationFrame(animationFrameId);
+                const finalTime = (Date.now() - startTime) / 1000;
+                const timeStr = finalTime.toFixed(2);
+                timerDisplay.textContent = timeStr;
+                
+                btn.textContent = '결과 확인';
+                btn.style.background = 'linear-gradient(135deg, #6e8efb, #a777e3)';
+                btn.style.boxShadow = '0 10px 20px rgba(167, 119, 227, 0.4)';
+                
+                document.getElementById('display-name').textContent = `🏁 기록 확인 중...`;
+
+                // 기록 저장 (몇 번째 회차인지 포함)
+                saveRecord(`${playerName} (${attemptCount}차)`, finalTime);
+
+                if (timeStr === '10.00') {
+                    // 성공 시 애니메이션
+                    messageDisplay.innerHTML = '🎉 완벽합니다! 10.00초 성공! 🎉';
+                    messageDisplay.style.color = '#e2c2ff';
+                    messageDisplay.style.textShadow = '0 0 15px rgba(226, 194, 255, 0.8)';
+                    messageDisplay.classList.add('show-msg');
+                    autoFirework();
+                } else {
+                    // 실패 시 애니메이션
+                    const diff = Math.abs(10 - finalTime).toFixed(2);
+                    messageDisplay.innerHTML = `아쉽네요... <b>${diff}초</b> 차이!`;
+                    messageDisplay.style.color = '#ff9e9e';
+                    messageDisplay.style.textShadow = '0 0 15px rgba(255, 158, 158, 0.8)';
+                    messageDisplay.classList.add('show-msg');
+                    
+                    void sadFace.offsetWidth; 
+                    sadFace.classList.add('animate-sad');
+                }
+                
+                // 결과 애니메이션 감상을 위해 2초 뒤에 랭킹 보드 표시
+                setTimeout(() => {
+                    showRanking();
+                }, 2000);
+            }
+        });
+        
+        // 페이지 로드 시 이름 입력칸 자동 포커스
+        setTimeout(() => nameInput.focus(), 100);
+    </script>
+</body>
+</html>
